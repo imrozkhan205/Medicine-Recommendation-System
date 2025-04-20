@@ -51,7 +51,11 @@ def get_predicted_value(patient_symptoms):
     input_vector = np.zeros(len(symptoms_dict))
     for item in patient_symptoms:
         input_vector[symptoms_dict[item]] = 1
-    return diseases_list[svc.predict([input_vector])[0]]
+    
+    # Convert the input_vector to a DataFrame with proper column names
+    input_df = pd.DataFrame([input_vector], columns=symptoms_dict.keys())
+    return diseases_list[svc.predict(input_df)[0]]
+
 
 
 
@@ -68,30 +72,43 @@ def index():
 def home():
     if request.method == 'POST':
         symptoms = request.form.get('symptoms')
-        # mysysms = request.form.get('mysysms')
-        # print(mysysms)
-        print(symptoms)
-        if symptoms =="Symptoms":
-            message = "Please either write symptoms or you have written misspelled symptoms"
+        print(f"User input: {symptoms}")
+
+        if not symptoms or symptoms.lower() == "symptoms":
+            message = "Please enter at least 3 valid symptoms separated by commas."
             return render_template('index.html', message=message)
-        else:
 
-            # Split the user's input into a list of symptoms (assuming they are comma-separated)
-            user_symptoms = [s.strip() for s in symptoms.split(',')]
-            # Remove any extra characters, if any
-            user_symptoms = [symptom.strip("[]' ") for symptom in user_symptoms]
-            predicted_disease = get_predicted_value(user_symptoms)
-            dis_des, precautions, medications, rec_diet, workout = helper(predicted_disease)
+        # Clean and split symptoms
+        user_symptoms = [s.strip().lower() for s in symptoms.split(',')]
+        user_symptoms = [symptom.strip("[]' ") for symptom in user_symptoms]
 
-            my_precautions = []
-            for i in precautions[0]:
-                my_precautions.append(i)
+        # Validate symptoms
+        valid_symptoms = [sym for sym in user_symptoms if sym in symptoms_dict]
+        invalid_symptoms = [sym for sym in user_symptoms if sym not in symptoms_dict]
 
-            return render_template('index.html', predicted_disease=predicted_disease, dis_des=dis_des,
-                                   my_precautions=my_precautions, medications=medications, my_diet=rec_diet,
-                                   workout=workout)
+        if len(valid_symptoms) < 3:
+            message = "Please enter at least 3 valid symptoms. " + ", ".join(invalid_symptoms), "does not exist as a symptom"
+            return render_template('index.html', message=message)
+        
+
+        # Make prediction
+        predicted_disease = get_predicted_value(valid_symptoms)
+        dis_des, precautions, medications, rec_diet, workout = helper(predicted_disease)
+
+        my_precautions = []
+        for i in precautions[0]:
+            my_precautions.append(i)
+
+        return render_template('index.html',
+                               predicted_disease=predicted_disease,
+                               dis_des=dis_des,
+                               my_precautions=my_precautions,
+                               medications=medications,
+                               my_diet=rec_diet,
+                               workout=workout)
 
     return render_template('index.html')
+
 
 
 
